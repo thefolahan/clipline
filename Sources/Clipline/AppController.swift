@@ -9,6 +9,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let defaults = UserDefaults.standard
 
     private var panel: LinePanel!
+    private var rug: RugController!
     private var statusItem: NSStatusItem!
     private var hotKey: HotKey?
     private var watcher: FolderWatcher?
@@ -27,6 +28,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         set { defaults.set(newValue, forKey: "catching") }
     }
 
+    private var style: Style {
+        get { Style(rawValue: defaults.string(forKey: "style") ?? "") ?? .line }
+        set { defaults.set(newValue.rawValue, forKey: "style") }
+    }
+
     private var announcing: Bool {
         get { defaults.object(forKey: "announce") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "announce") }
@@ -36,6 +42,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let host = NSHostingView(rootView: LineView(store: store))
         host.sizingOptions = []
         panel = LinePanel(content: host)
+        rug = RugController(store: store)
+        if style == .rug { rug.show() }
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = NSImage(systemSymbolName: "photo.on.rectangle.angled", accessibilityDescription: "Clipline")
@@ -54,7 +62,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         watch()
 
-        let ticker = Timer(timeInterval: 0.08, repeats: true) { [weak self] _ in
+        let ticker = Timer(timeInterval: 0.04, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
         RunLoop.main.add(ticker, forMode: .common)
@@ -95,6 +103,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func caught(_ url: URL) {
         store.add(url)
         guard announcing else { return }
+        if style == .rug {
+            rug.tuck()
+            return
+        }
         let screen = screenUnderMouse() ?? NSScreen.main
         guard let screen, !FullScreen.isActive(on: screen) else { return }
         announceUntil = Date().addingTimeInterval(2.6)
@@ -102,7 +114,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func toggleFromKey() {
-        if shown {
+        if style == .rug {
+            rug.toggle()
+        } else if shown {
             hide()
         } else if let screen = screenUnderMouse() ?? NSScreen.main {
             openedByKey = true
@@ -123,6 +137,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func tick() {
         let mouse = NSEvent.mouseLocation
+        if style == .rug {
+            rug.track(mouse: mouse)
+            return
+        }
         let now = Date()
         let buttonsDown = NSEvent.pressedMouseButtons != 0
 
@@ -201,17 +219,28 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
 
-        let show = MenuAction(shown ? "Hide Line" : "Show Line") { [weak self] in self?.toggleFromKey() }
+        let title = style == .rug ? "Fold Rug Back" : (shown ? "Hide Line" : "Show Line")
+        let show = MenuAction(title) { [weak self] in self?.toggleFromKey() }
         show.keyEquivalent = "l"
         show.keyEquivalentModifierMask = [.control, .option]
         menu.addItem(show)
+
+        let styleItem = NSMenuItem(title: "Style", action: nil, keyEquivalent: "")
+        let styles = NSMenu()
+        for option in Style.allCases {
+            let item = MenuAction(option.title) { [weak self] in self?.setStyle(option) }
+            item.state = style == option ? .on : .off
+            styles.addItem(item)
+        }
+        styleItem.submenu = styles
+        menu.addItem(styleItem)
         menu.addItem(.separator())
 
         let catchItem = MenuAction("Catch New Screenshots") { [weak self] in self?.setCatching(!(self?.catching ?? false)) }
         catchItem.state = catching ? .on : .off
         menu.addItem(catchItem)
 
-        let announceItem = MenuAction("Show Line for New Screenshots") { [weak self] in
+        let announceItem = MenuAction("Animate New Screenshots") { [weak self] in
             guard let self else { return }
             self.announcing.toggle()
         }
@@ -253,6 +282,17 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(quit)
     }
 
+    private func setStyle(_ new: Style) {
+        guard new != style else { return }
+        style = new
+        if new == .rug {
+            if shown { hide() }
+            rug.show()
+        } else {
+            rug.hide()
+        }
+    }
+
     private func setCatching(_ on: Bool) {
         catching = on
         if on {
@@ -270,6 +310,18 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case 24: "1 Day"
         case 168: "1 Week"
         default: "\(hours) Hours"
+        }
+    }
+}
+
+enum Style: String, CaseIterable {
+    case line
+    case rug
+
+    var title: String {
+        switch self {
+        case .line: "Washing Line"
+        case .rug: "Rug"
         }
     }
 }
