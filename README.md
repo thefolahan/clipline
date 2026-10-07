@@ -6,6 +6,8 @@
 <p align="center">
   Free and open source. For macOS 14 and later.
   <br>
+  <a href="../../releases/latest">Download&nbsp;&rsaquo;</a>
+  &nbsp;&nbsp;
   <a href="#build-from-source">Build from source&nbsp;&rsaquo;</a>
 </p>
 
@@ -95,6 +97,27 @@ screenshots never leave it.
 | **Permissions** | None for the default setup |
 | **Price** | Free |
 | **Licence** | MIT |
+
+<br>
+
+## Install
+
+Download `Clipline.dmg` from the [latest release](../../releases/latest),
+open it and drag Clipline to Applications.
+
+Clipline is not yet signed with an Apple Developer ID, so the first time you
+open it macOS will say it cannot verify the developer. To open it anyway:
+
+1. Try to open Clipline once, then choose **Done** on the warning.
+2. Open **System Settings**, go to **Privacy & Security** and scroll down.
+3. Next to the message about Clipline, choose **Open Anyway** and confirm.
+
+macOS remembers the choice, so this happens only once. If you prefer the
+terminal, this does the same thing:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Clipline.app
+```
 
 <br>
 

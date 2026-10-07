@@ -20,7 +20,12 @@ codesign --force --options runtime --sign "${SIGN_IDENTITY:--}" "$APP"
 echo "Built $APP"
 
 if [ "${1:-}" = "--dmg" ]; then
-    rm -f build/Clipline.dmg
-    hdiutil create -volname Clipline -srcfolder "$APP" -ov -format UDZO build/Clipline.dmg >/dev/null
+    STAGE=build/dmg
+    rm -rf "$STAGE" build/Clipline.dmg
+    mkdir -p "$STAGE"
+    cp -R "$APP" "$STAGE/"
+    ln -s /Applications "$STAGE/Applications"
+    hdiutil create -volname Clipline -srcfolder "$STAGE" -ov -format UDZO build/Clipline.dmg >/dev/null
+    rm -rf "$STAGE"
     echo "Built build/Clipline.dmg"
 fi
