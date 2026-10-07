@@ -219,11 +219,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
 
-        let title = style == .rug ? "Fold Rug Back" : (shown ? "Hide Line" : "Show Line")
+        let title = style == .rug ? "Fold Rug Back or Lay It Flat" : (shown ? "Hide Line" : "Show Line")
         let show = MenuAction(title) { [weak self] in self?.toggleFromKey() }
         show.keyEquivalent = "l"
         show.keyEquivalentModifierMask = [.control, .option]
         menu.addItem(show)
+        if style == .rug {
+            menu.addItem(MenuAction("Lay Rug Flat") { [weak self] in self?.rug.layFlat() })
+        }
 
         let styleItem = NSMenuItem(title: "Style", action: nil, keyEquivalent: "")
         let styles = NSMenu()

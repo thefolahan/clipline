@@ -18,7 +18,7 @@ From there you copy a screenshot, drag it where it needs to go, or let it clear 
 ## Features
 
 - **A line that appears when you need it.** Rest the pointer on the menu bar and the line slides down. Move away and it tucks itself back. Control Option L shows or hides it from anywhere.
-- **A rug that folds like a real one.** Drag any corner and the rug peels back along a crease, showing its darker underside. Let go past the halfway point and it stays folded open; let go sooner and it falls flat again with a little flutter. Drag the middle to move the rug anywhere on the Desktop. Control Option L folds it back or lays it down.
+- **A rug that behaves like cloth.** The rug is a physical simulation, not an animation. Pick it up anywhere and it lifts, drapes and follows the pointer; let go and it falls where you left it, so a corner folded over stays folded until you pull it back. Drag it by the middle to move it across the Desktop. Control Option L folds it back or lays it flat, and Lay Rug Flat in the menu smooths out any creases.
 - **New screenshots announce themselves.** On the line, each capture drops on with a little swing. Under the rug, a corner lifts briefly as the screenshot slides beneath it.
 - **Pinning.** Press and hold a screenshot to pin it. Pinned screenshots get a red peg, stay at the front of the line and are never cleared automatically.
 - **Automatic clearing.** Unpinned screenshots move to the Trash after one hour, one day or one week, or never. Nothing is deleted permanently, so the Trash is always a safety net.
@@ -65,7 +65,8 @@ Run `scripts/build-app.sh --dmg` to also produce a disk image. Set `SIGN_IDENTIT
 | `FolderWatcher.swift` | Watches the capture folder with a kernel file system event source |
 | `CaptureSettings.swift` | Redirects system screenshots and restores the previous settings |
 | `RugController.swift` | The Desktop level window for the rug style and the screenshots scattered beneath it |
-| `RugView.swift` | Draws the rug, computes the fold and animates it with a spring |
+| `ClothSim.swift` | The cloth: particles, distance constraints, gravity, friction and layering |
+| `RugScene.swift` | Renders the cloth with SceneKit from shared Metal buffers and turns the pointer into grabs |
 | `RugArt.swift` | Paints the rug pattern and its darker underside in code |
 | `PrintView.swift` | One screenshot under the rug, sharing every gesture with the line |
 | `HotKey.swift` | Registers the global shortcut without needing Accessibility permission |
@@ -76,7 +77,8 @@ A few details worth calling out:
 - **Telling screenshots apart from other images.** When Clipline is not redirecting captures it watches your existing screenshot folder and only accepts files carrying the `kMDItemIsScreenCapture` extended attribute that macOS adds to real screenshots. The attribute arrives slightly after the file does, so each new file is checked a few times before being skipped.
 - **Knowing where a drag ended up.** Dragging hands the file to the system with copy, move and delete allowed. Finder moves the file when you drop it into a folder on the same disk, while apps such as Mail or Slack take a copy. Afterwards Clipline simply checks whether the file still exists, which keeps the line accurate whatever the destination did.
 - **Text recognition that degrades gracefully.** Clipline asks Vision for its accurate model first and falls back to the fast model when the accurate one is unavailable or finds nothing.
-- **Folding the rug.** The fold is the classic paper fold: the crease is the perpendicular bisector between the grabbed corner and the pointer. The rug is clipped against that line, the lifted part is mirrored across it with an affine reflection and drawn from the darker underside image, and a spring drives the corner so the rug settles with a small overshoot.
+- **Simulating the rug.** The rug is a 46 by 29 grid of particles integrated with Verlet steps at 240 Hz, held together by stretch, shear and weak bending constraints. The floor has high friction so the rug never skids, and a spatial hash keeps a folded layer resting on top of the layer beneath it, with friction between them so folds hold. The grabbed particle chases the pointer through exponential smoothing, which is what makes the motion feel soft rather than mechanical.
+- **Rendering the rug.** Particle positions and normals are written straight into Metal buffers that SceneKit reads, so nothing is rebuilt per frame. The top uses the rug texture, the underside a darker copy with flipped normals, a perspective camera makes lifted parts look closer, and the shadow is a Core Animation layer traced from the outline of the cloth. When the rug is still for a moment the simulation sleeps and costs nothing.
 - **Clicking through the rug.** The rug window covers the Desktop but only accepts the mouse where the rug or a revealed screenshot actually is, so clicks everywhere else reach the Desktop as normal.
 - **No permissions prompts in the default setup.** Polling the pointer position, reading window bounds and Carbon hot keys all work without Accessibility or Screen Recording access.
 

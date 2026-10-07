@@ -3,13 +3,14 @@ import Combine
 
 @MainActor
 final class RugController {
-    static let size = CGSize(width: 620, height: 390)
-
     private let store: ShotStore
     private let panel: NSPanel
     private let container = RugContainer()
-    private let rug = RugView(size: RugController.size)
+    private var rug: RugScene!
+    private let shadow = CAShapeLayer()
+    private let shadowView = PassThroughView()
     private var prints: [URL: PrintView] = [:]
+    private var spots: [String: [Double]] = UserDefaults.standard.dictionary(forKey: "rugSpots") as? [String: [Double]] ?? [:]
     private var subscription: AnyCancellable?
 
     init(store: ShotStore) {
@@ -24,13 +25,6 @@ final class RugController {
         panel.ignoresMouseEvents = true
         panel.contentView = container
 
-        rug.autoresizingMask = [.width, .height]
-        container.addSubview(rug)
-        rug.onMoved = { [weak self] frame in
-            UserDefaults.standard.set(NSStringFromPoint(frame.origin), forKey: "rugOrigin")
-            self?.arrange()
-        }
-
         subscription = store.$shots.sink { [weak self] shots in
             DispatchQueue.main.async {
                 MainActor.assumeIsolated { self?.sync(shots) }
@@ -44,15 +38,37 @@ final class RugController {
         guard let screen = NSScreen.main else { return }
         panel.setFrame(screen.visibleFrame, display: false)
         container.frame = CGRect(origin: .zero, size: screen.visibleFrame.size)
-        rug.frame = container.bounds
 
-        let saved = UserDefaults.standard.string(forKey: "rugOrigin").map(NSPointFromString)
-        let fallback = CGPoint(x: 80, y: 80)
-        var origin = saved ?? fallback
-        if !container.bounds.insetBy(dx: -Self.size.width / 2, dy: -Self.size.height / 2).contains(origin) {
-            origin = fallback
+        if rug == nil {
+            let saved = UserDefaults.standard.string(forKey: "rugCenter").map(NSPointFromString)
+            var center = saved ?? CGPoint(x: 420, y: 300)
+            if !container.bounds.contains(center) { center = CGPoint(x: 420, y: 300) }
+            rug = RugScene(frame: container.bounds, center: SIMD2(Float(center.x), Float(center.y)))
+            rug.autoresizingMask = [.width, .height]
+            shadowView.frame = container.bounds
+            shadowView.autoresizingMask = [.width, .height]
+            shadowView.wantsLayer = true
+            shadow.fillColor = NSColor(white: 0, alpha: 0.01).cgColor
+            shadow.shadowColor = .black
+            shadow.shadowOpacity = 0.5
+            shadow.shadowRadius = 9
+            shadow.shadowOffset = .zero
+            shadowView.layer?.addSublayer(shadow)
+            container.addSubview(shadowView)
+            rug.onOutline = { [weak self] path in
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                self?.shadow.path = path
+                self?.shadow.shadowPath = path
+                CATransaction.commit()
+            }
+            rug.onRest = { offset in
+                UserDefaults.standard.set(NSStringFromPoint(CGPoint(x: CGFloat(offset.x), y: CGFloat(offset.y))), forKey: "rugCenter")
+            }
+            container.addSubview(rug)
+            rug.refreshOutline()
+            prints.values.forEach { container.addSubview($0, positioned: .below, relativeTo: shadowView) }
         }
-        rug.rugFrame = CGRect(origin: origin, size: Self.size)
         arrange()
         panel.orderFrontRegardless()
     }
@@ -63,11 +79,15 @@ final class RugController {
     }
 
     func toggle() {
-        rug.toggle()
+        rug?.toggle()
     }
 
     func tuck() {
-        rug.tuck()
+        rug?.tuck()
+    }
+
+    func layFlat() {
+        rug?.layFlat()
     }
 
     func track(mouse: NSPoint) {
@@ -90,7 +110,11 @@ final class RugController {
                 continue
             }
             let view = PrintView(shot: shot, image: store.thumbnail(for: shot), actions: store.actions(for: shot))
-            container.addSubview(view, positioned: .below, relativeTo: rug)
+            if rug != nil {
+                container.addSubview(view, positioned: .below, relativeTo: shadowView)
+            } else {
+                container.addSubview(view)
+            }
             prints[shot.url] = view
             if panel.isVisible {
                 view.alphaValue = 0
@@ -104,18 +128,31 @@ final class RugController {
     }
 
     private func arrange() {
-        let rugFrame = rug.rugFrame.insetBy(dx: 60, dy: 50)
+        let area = (rug?.footprint() ?? CGRect(x: 110, y: 105, width: 620, height: 390)).insetBy(dx: 70, dy: 60)
+        var changed = false
         for (url, view) in prints {
+            let name = url.lastPathComponent
+            if spots[name] == nil {
+                var random = SeededRandom(seed: name.unicodeScalars.reduce(1_469_598_103_934_665_603) { ($0 ^ UInt64($1.value)) &* 1_099_511_628_211 })
+                spots[name] = [
+                    Double(area.minX + random.next(in: 0...1) * area.width),
+                    Double(area.minY + random.next(in: 0...1) * area.height),
+                    Double(random.next(in: -14...14))
+                ]
+                changed = true
+            }
+            guard let spot = spots[name], spot.count == 3 else { continue }
             let size = Self.printSize(for: view.image)
-            var random = SeededRandom(seed: url.lastPathComponent.unicodeScalars.reduce(1_469_598_103_934_665_603) { ($0 ^ UInt64($1.value)) &* 1_099_511_628_211 })
-            let center = CGPoint(
-                x: rugFrame.minX + random.next(in: 0...1) * rugFrame.width,
-                y: rugFrame.minY + random.next(in: 0...1) * rugFrame.height
-            )
             view.frameCenterRotation = 0
-            view.frame = CGRect(x: center.x - size.width / 2, y: center.y - size.height / 2, width: size.width, height: size.height)
-            view.frameCenterRotation = random.next(in: -14...14)
+            view.frame = CGRect(x: spot[0] - size.width / 2, y: spot[1] - size.height / 2, width: size.width, height: size.height)
+            view.frameCenterRotation = spot[2]
         }
+        let live = Set(prints.keys.map(\.lastPathComponent))
+        if spots.keys.contains(where: { !live.contains($0) }) {
+            spots = spots.filter { live.contains($0.key) }
+            changed = true
+        }
+        if changed { UserDefaults.standard.set(spots, forKey: "rugSpots") }
     }
 
     private static func printSize(for image: NSImage?) -> CGSize {
@@ -133,4 +170,8 @@ final class RugContainer: NSView {
         let hit = super.hitTest(point)
         return hit === self ? nil : hit
     }
+}
+
+final class PassThroughView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
