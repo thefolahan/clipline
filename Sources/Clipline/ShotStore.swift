@@ -95,22 +95,6 @@ final class ShotStore: ObservableObject {
         }
     }
 
-    func actions(for shot: Shot) -> ShotActions {
-        ShotActions(
-            copy: { [weak self] in self?.copyImage(shot) },
-            copyText: { [weak self] in self?.copyText(shot) ?? false },
-            togglePin: { [weak self] in self?.togglePin(shot) },
-            open: { [weak self] in self?.open(shot) },
-            reveal: { [weak self] in self?.reveal(shot) },
-            trash: { [weak self] in self?.trash(shot) },
-            dragEnded: { [weak self] in
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    MainActor.assumeIsolated { self?.reconcile() }
-                }
-            }
-        )
-    }
-
     func reveal(_ shot: Shot) {
         NSWorkspace.shared.activateFileViewerSelecting([shot.url])
     }

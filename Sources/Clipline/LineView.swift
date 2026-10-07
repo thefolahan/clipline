@@ -30,7 +30,7 @@ struct LineView: View {
                                 image: item.image,
                                 imageSize: item.size,
                                 restAngle: angle(for: item.shot),
-                                actions: store.actions(for: item.shot)
+                                actions: actions(for: item.shot)
                             )
                             .position(x: item.x, y: y + cardHeight / 2)
                         }
@@ -97,6 +97,20 @@ struct LineView: View {
     private func angle(for shot: Shot) -> Double {
         let seed = shot.url.lastPathComponent.unicodeScalars.reduce(7) { ($0 &* 31 &+ Int($1.value)) & 0xFFFF }
         return Double(seed % 70) / 10 - 3.5
+    }
+
+    private func actions(for shot: Shot) -> ShotActions {
+        ShotActions(
+            copy: { store.copyImage(shot) },
+            copyText: { store.copyText(shot) },
+            togglePin: { store.togglePin(shot) },
+            open: { store.open(shot) },
+            reveal: { store.reveal(shot) },
+            trash: { store.trash(shot) },
+            dragEnded: {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { store.reconcile() }
+            }
+        )
     }
 }
 

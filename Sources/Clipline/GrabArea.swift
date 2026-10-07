@@ -31,7 +31,7 @@ struct GrabArea: NSViewRepresentable {
     }
 }
 
-class GrabView: NSView, NSDraggingSource {
+final class GrabView: NSView, NSDraggingSource {
     var shot: Shot?
     var image: NSImage?
     var actions: ShotActions?
