@@ -1,0 +1,372 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { overflow: hidden; }
+  body {
+    font-family: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    --page: #ffffff;
+    --ink: #1d1d1f;
+    --muted: #6e6e73;
+    --sky-a: #dbeafe;
+    --sky-b: #ede9fe;
+    --sky-c: #ffe8dc;
+    --bar: rgba(255, 255, 255, 0.55);
+    --bar-ink: rgba(60, 60, 67, 0.55);
+    --frame: #fbfbfb;
+    --caption: #8a8a8e;
+    --rope: #c9b48f;
+    --rope-dark: #8f7a58;
+    --tile: #f3f3f6;
+    --accent: #3d7bf0;
+    --veil: rgba(255, 255, 255, 0.35);
+    background: var(--page);
+  }
+  body.dark {
+    --page: #0d1117;
+    --ink: #f5f5f7;
+    --muted: #a1a1a6;
+    --sky-a: #172554;
+    --sky-b: #2e1065;
+    --sky-c: #3b1d2e;
+    --bar: rgba(20, 20, 32, 0.5);
+    --bar-ink: rgba(235, 235, 245, 0.45);
+    --frame: #ececf0;
+    --caption: #77777c;
+    --rope: #b9a37d;
+    --rope-dark: #7d6a4a;
+    --tile: #161b22;
+    --accent: #6ea0ff;
+    --veil: rgba(10, 12, 24, 0.35);
+  }
+
+  .screen {
+    position: absolute;
+    overflow: hidden;
+    background:
+      radial-gradient(120% 140% at 0% 0%, var(--sky-a), transparent 60%),
+      radial-gradient(120% 140% at 100% 100%, var(--sky-c), transparent 60%),
+      var(--sky-b);
+  }
+  .menubar {
+    position: absolute; left: 0; right: 0; top: 0; height: 24px;
+    background: var(--bar);
+    display: flex; align-items: center; gap: 10px; padding: 0 14px;
+    z-index: 5;
+  }
+  .menubar i { display: block; height: 6px; border-radius: 3px; background: var(--bar-ink); }
+  .menubar .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .menubar .gap { flex: 1; background: none; }
+  .menubar .sq { width: 13px; height: 9px; border-radius: 2.5px; }
+  .menubar .mine {
+    width: 15px; height: 11px; border-radius: 2px; background: none;
+    border: 1.6px solid var(--bar-ink); position: relative;
+  }
+  .menubar .mine::after {
+    content: ""; position: absolute; left: 3px; right: 3px; top: 2px; height: 4px;
+    background: var(--bar-ink); border-radius: 1px;
+  }
+
+  .panel { position: absolute; left: 0; right: 0; top: 24px; z-index: 3; }
+  .panel .veil {
+    position: absolute; inset: 0 0 auto 0;
+    background: linear-gradient(var(--veil), transparent);
+  }
+  svg.rope { position: absolute; left: 0; top: 0; overflow: visible; }
+
+  .card {
+    position: absolute;
+    background: var(--frame);
+    border-radius: 3px;
+    padding: 5px 5px 0;
+    transform-origin: 50% 0;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(0, 0, 0, 0.12);
+  }
+  .card .art { position: relative; overflow: hidden; border-radius: 1.5px; }
+  .card .cap {
+    height: 18px; display: flex; align-items: center; gap: 4px;
+    font: 500 9px -apple-system, sans-serif; color: var(--caption); padding: 0 2px;
+  }
+  .card .cap .end { margin-left: auto; display: flex; }
+  .peg {
+    position: absolute; left: 50%; top: -15px; width: 11px; height: 30px; margin-left: -5.5px;
+    border-radius: 2.5px; background: linear-gradient(90deg, #dbb380, #a87d4f);
+    box-shadow: 0 1.5px 2px rgba(0, 0, 0, 0.3);
+  }
+  .peg::before { content: ""; position: absolute; left: 5px; top: 2px; width: 1px; height: 26px; background: rgba(0, 0, 0, 0.22); }
+  .peg::after { content: ""; position: absolute; left: -1px; top: 15px; width: 13px; height: 3px; border-radius: 2px; background: #c4c4c4; }
+  .peg.red { background: linear-gradient(90deg, #ee544a, #b82b29); }
+  .pill {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    font: 600 10.5px -apple-system, sans-serif; color: #fff;
+    background: rgba(0, 0, 0, 0.72); border-radius: 99px; padding: 4px 9px; white-space: nowrap;
+    display: flex; align-items: center; gap: 4px;
+  }
+
+  /* Card art */
+  .chat { background: #f7f7fa; padding: 9px; display: flex; flex-direction: column; gap: 6px; }
+  .chat b { display: block; height: 13px; border-radius: 7px; }
+  .chat .them { background: #e3e3e8; width: 62%; }
+  .chat .me { background: #3d7bf0; width: 54%; align-self: flex-end; }
+  .chat .me.short { width: 34%; }
+  .code { background: #1e2230; padding: 9px 10px; display: flex; flex-direction: column; gap: 5px; }
+  .code b { display: block; height: 5px; border-radius: 3px; }
+  .hills { background: linear-gradient(#8ec5ff, #d7e9ff 60%, #fde6d2); }
+  .hills .sun { position: absolute; width: 22%; aspect-ratio: 1; border-radius: 50%; background: #ffd68a; right: 18%; top: 18%; }
+  .hills .far, .hills .near { position: absolute; left: -10%; right: -10%; border-radius: 50% 50% 0 0; }
+  .hills .far { height: 55%; bottom: -12%; background: #5a8bd6; transform: rotate(-4deg); }
+  .hills .near { height: 45%; bottom: -18%; background: #2f5aa8; transform: rotate(5deg); left: 10%; }
+  .chart { background: #ffffff; padding: 9px; }
+  .chart .title { height: 5px; width: 40%; border-radius: 3px; background: #d4d4da; }
+  .chart svg { position: absolute; left: 0; bottom: 0; width: 100%; height: 72%; }
+
+  /* Hero */
+  .hero-title { position: absolute; left: 0; right: 0; text-align: center; color: var(--ink); }
+  .hero-title h1 { font-size: 92px; font-weight: 700; letter-spacing: -3px; }
+  .hero-title p { font-size: 27px; color: var(--muted); margin-top: 6px; letter-spacing: -0.3px; }
+
+  /* Bento */
+  .bento { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 0; }
+  .tile { background: var(--tile); border-radius: 26px; padding: 34px 32px; position: relative; display: flex; flex-direction: column; justify-content: flex-end; }
+  .tile svg { position: absolute; left: 30px; top: 30px; width: 46px; height: 46px; stroke: var(--accent); fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  .tile h2 { font-size: 27px; letter-spacing: -0.6px; color: var(--ink); font-weight: 700; }
+  .tile p { font-size: 16.5px; color: var(--muted); margin-top: 7px; line-height: 1.35; }
+
+  .pointer { position: absolute; width: 17px; height: 25px; z-index: 9; }
+  .key {
+    position: absolute; z-index: 9; font: 600 11px -apple-system, sans-serif; color: var(--ink);
+    background: var(--page); border: 1px solid rgba(128, 128, 128, 0.4); border-radius: 5px; padding: 2px 6px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const PIN = '<svg width="8" height="9" viewBox="0 0 8 9"><circle cx="4" cy="3" r="2.6" fill="currentColor"/><path d="M4 5v4" stroke="currentColor" stroke-width="1.3"/></svg>';
+const TEXT = '<svg width="10" height="9" viewBox="0 0 10 9" fill="none" stroke="currentColor" stroke-width="1.1"><path d="M1 3V1h2M7 1h2v2M9 6v2H7M3 8H1V6"/><path d="M3.5 3.2h3M5 3.2V6"/></svg>';
+const CHECK = '<svg width="9" height="8" viewBox="0 0 9 8" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4.2 3.4 6.5 8 1.5"/></svg>';
+const POINTER = '<svg viewBox="0 0 17 25" width="17" height="25"><path d="M1.5 1.5v19.2l4.6-4.4 3 6.9 3.2-1.4-3-6.8h6.3z" fill="#000" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+
+const ARTS = {
+  chat: '<div class="art chat"><b class="them"></b><b class="me"></b><b class="them" style="width:44%"></b><b class="me short"></b></div>',
+  code: '<div class="art code">' + [
+    ['#c792ea', 30], ['#82aaff', 62], ['#c3e88d', 48], ['#89ddff', 70], ['#f78c6c', 40], ['#82aaff', 56], ['#c3e88d', 34]
+  ].map(([c, w], i) => `<b style="background:${c};width:${w}%;margin-left:${i % 3 === 0 ? 0 : 10}%"></b>`).join('') + '</div>',
+  hills: '<div class="art hills"><div class="sun"></div><div class="far"></div><div class="near"></div></div>',
+  chart: '<div class="art chart"><div class="title"></div><svg viewBox="0 0 100 60" preserveAspectRatio="none"><defs><linearGradient id="fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#3d7bf0" stop-opacity=".35"/><stop offset="1" stop-color="#3d7bf0" stop-opacity="0"/></linearGradient></defs><path d="M0 48 C12 44 18 30 30 34 S48 18 60 24 S80 6 100 10 V60 H0Z" fill="url(#fill)"/><path d="M0 48 C12 44 18 30 30 34 S48 18 60 24 S80 6 100 10" fill="none" stroke="#3d7bf0" stroke-width="2.2" vector-effect="non-scaling-stroke"/></svg></div>'
+};
+
+function card({ art, w, h, caption, pinned, text }) {
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.innerHTML = `${ARTS[art]}<div class="cap">${pinned ? `<span class="pin">${PIN}</span>` : ''}<span class="age">${caption}</span><span class="end">${text ? TEXT : ''}</span></div><span class="peg ${pinned ? 'red' : ''}"></span>`;
+  el.querySelector('.art').style.cssText += `width:${w}px;height:${h}px`;
+  return el;
+}
+
+function scene(root, { width, height, panel, cards, sag = 12, ropeTop = 22, gap = 26 }) {
+  const screen = document.createElement('div');
+  screen.className = 'screen';
+  Object.assign(screen.style, { width: width + 'px', height: height + 'px' });
+  screen.innerHTML = '<div class="menubar"><i class="dot"></i><i style="width:34px"></i><i style="width:26px"></i><i style="width:22px"></i><i style="width:30px"></i><i style="width:24px"></i><i class="gap"></i><i class="mine"></i><i class="sq"></i><i class="sq"></i><i class="sq"></i><i style="width:38px"></i></div>';
+
+  const p = document.createElement('div');
+  p.className = 'panel';
+  p.style.height = panel + 'px';
+  p.innerHTML = `<div class="veil" style="height:${panel}px"></div><svg class="rope" width="${width}" height="${panel}"><path d="M-10 ${ropeTop} Q${width / 2} ${ropeTop + sag * 2} ${width + 10} ${ropeTop}" stroke="rgba(0,0,0,.14)" stroke-width="3" fill="none" transform="translate(0,2)"/><path d="M-10 ${ropeTop} Q${width / 2} ${ropeTop + sag * 2} ${width + 10} ${ropeTop}" stroke="var(--rope)" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M-10 ${ropeTop} Q${width / 2} ${ropeTop + sag * 2} ${width + 10} ${ropeTop}" stroke="var(--rope-dark)" stroke-width="3" fill="none" stroke-dasharray="2 3.5"/></svg>`;
+
+  const total = cards.reduce((s, c) => s + c.w + 10, 0) + gap * (cards.length - 1);
+  let x = (width - total) / 2;
+  const placed = cards.map((spec) => {
+    const el = card(spec);
+    const cx = x + (spec.w + 10) / 2;
+    const t = cx / width;
+    const y = ropeTop + 4 * sag * t * (1 - t) + 7;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    p.appendChild(el);
+    x += spec.w + 10 + gap;
+    return { el, spec, cx, top: y + 24, height: spec.h + 23 };
+  });
+  screen.appendChild(p);
+  root.appendChild(screen);
+  return { screen, panel: p, placed };
+}
+
+const DEMO_CARDS = [
+  { art: 'chat', w: 150, h: 104, caption: '1 min ago', text: true },
+  { art: 'hills', w: 168, h: 112, caption: 'Just now' },
+  { art: 'code', w: 156, h: 106, caption: '5 min ago', text: true },
+  { art: 'chart', w: 160, h: 106, caption: '12 min ago' }
+];
+
+function hero() {
+  const root = document.getElementById('root');
+  document.body.style.width = '1200px';
+  document.body.style.height = '580px';
+  root.innerHTML = '<div class="hero-title" style="top:58px"><h1>Clipline</h1><p>Screenshots on the line, not on the Desktop.</p></div>';
+  const s = scene(root, {
+    width: 1080, height: 296, panel: 270, sag: 16, ropeTop: 30, gap: 34,
+    cards: [
+      { art: 'chat', w: 176, h: 124, caption: '1 min ago', text: true },
+      { art: 'code', w: 186, h: 126, caption: '2 h ago', pinned: true, text: true },
+      { art: 'hills', w: 196, h: 130, caption: 'Just now' },
+      { art: 'chart', w: 180, h: 124, caption: '12 min ago' }
+    ]
+  });
+  Object.assign(s.screen.style, { left: '60px', top: '254px', borderRadius: '22px', boxShadow: '0 30px 60px rgba(0,0,0,.14), 0 0 0 1px rgba(128,128,128,.12)' });
+  s.placed.forEach(({ el }, i) => { el.style.transform = `rotate(${[-2.2, 1.6, -1.2, 2.4][i]}deg)`; });
+  const ptr = document.createElement('div');
+  ptr.className = 'pointer';
+  ptr.innerHTML = POINTER;
+  Object.assign(ptr.style, { left: '700px', top: '8px' });
+  s.screen.appendChild(ptr);
+}
+
+const ICONS = {
+  copy: '<rect x="12" y="11" width="20" height="24" rx="4"/><path d="M8 29V9a4 4 0 0 1 4-4h14"/>',
+  text: '<path d="M6 13V7h6M28 7h6v6M34 27v6h-6M12 33H6v-6"/><path d="M14 14h12M20 14v13"/>',
+  pin: '<path d="M15 6h10l-1.5 9 5 5H11.5l5-5z"/><path d="M20 20v14"/>',
+  share: '<rect x="6" y="6" width="28" height="28" rx="7"/><path d="M15 25l10-10M17 15h8v8"/>',
+  go: '<circle cx="20" cy="20" r="14"/><path d="M15 15l10 10M25 15 15 25"/>',
+  clock: '<circle cx="20" cy="20" r="14"/><path d="M20 12v8l6 4"/>'
+};
+
+function bento() {
+  document.body.style.width = '1200px';
+  document.body.style.height = '560px';
+  const tiles = [
+    ['copy', 'Click to copy.', 'Paste it anywhere, straight away.'],
+    ['text', 'Option click for text.', 'Every word in the shot, read on your Mac.'],
+    ['pin', 'Hold to pin.', 'A red peg keeps it first, and keeps it.'],
+    ['share', 'Drag to share.', 'Apps get a copy. Folders keep the original.'],
+    ['go', 'Let it go.', 'Click the cross, or drop it in the Trash.'],
+    ['clock', 'Clears itself.', 'Unpinned shots leave after a day, or never.']
+  ];
+  document.getElementById('root').innerHTML = '<div class="bento">' + tiles.map(([icon, title, body]) =>
+    `<div class="tile"><svg viewBox="0 0 40 40">${ICONS[icon]}</svg><h2>${title}</h2><p>${body}</p></div>`).join('') + '</div>';
+  document.querySelector('.bento').style.gridTemplateRows = '1fr 1fr';
+}
+
+/* Demo: one call per frame, every value derived from t. */
+let demo;
+function setupDemo() {
+  document.body.style.width = '960px';
+  document.body.style.height = '320px';
+  const root = document.getElementById('root');
+  demo = scene(root, { width: 960, height: 320, panel: 220, sag: 12, ropeTop: 22, gap: 30, cards: DEMO_CARDS });
+  demo.ptr = document.createElement('div');
+  demo.ptr.className = 'pointer';
+  demo.ptr.innerHTML = POINTER;
+  demo.screen.appendChild(demo.ptr);
+  demo.pill = document.createElement('div');
+  demo.pill.className = 'pill';
+  demo.screen.appendChild(demo.pill);
+  demo.key = document.createElement('div');
+  demo.key.className = 'key';
+  demo.key.textContent = '⌥ option';
+  demo.screen.appendChild(demo.key);
+}
+
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const ease = (v) => { v = clamp(v); return v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2; };
+const easeOut = (v) => 1 - Math.pow(1 - clamp(v), 3);
+const lerp = (a, b, v) => a + (b - a) * v;
+const span = (t, a, b) => clamp((t - a) / (b - a));
+
+function renderDemo(t) {
+  if (!demo) setupDemo();
+  const { panel, placed, ptr, pill, key } = demo;
+  const target = (i, dx = 0, dy = 0) => [placed[i].cx + dx, placed[i].top + 24 + placed[i].height * 0.42 + dy];
+
+  const path = [
+    [0.0, [520, 280]],
+    [0.9, [610, 8]],
+    [2.3, [610, 8]],
+    [2.9, target(1, 6, -6)],
+    [4.1, target(1, 6, -6)],
+    [4.7, target(0, 4, -2)],
+    [5.9, target(0, 4, -2)],
+    [6.5, target(2, -4, -4)],
+    [8.0, target(2, -4, -4)],
+    [8.8, [720, 300]],
+    [10.0, [720, 300]]
+  ];
+  let pos = path[path.length - 1][1];
+  for (let i = 0; i < path.length - 1; i++) {
+    const [ta, a] = path[i];
+    const [tb, b] = path[i + 1];
+    if (t >= ta && t <= tb) { const v = ease((t - ta) / (tb - ta)); pos = [lerp(a[0], b[0], v), lerp(a[1], b[1], v)]; break; }
+  }
+  ptr.style.left = pos[0] + 'px';
+  ptr.style.top = pos[1] + 'px';
+
+  const down = easeOut(span(t, 1.25, 1.75));
+  const up = ease(span(t, 8.75, 9.2));
+  const shown = down * (1 - up);
+  panel.style.transform = `translateY(${lerp(-240, 0, shown)}px)`;
+  panel.style.opacity = shown;
+
+  const pressCopy = t > 3.25 && t < 3.4;
+  const pressText = t > 5.15 && t < 5.3;
+  const holding = t > 6.85 && t < 7.45;
+  const pinnedNow = t >= 7.45;
+
+  placed.forEach(({ el, spec }, i) => {
+    const since = t - 1.25 - i * 0.07;
+    let angle = [-2, 1.4, -1.1, 2][i];
+    if (since > 0) angle += (i % 2 ? 9 : -9) * Math.exp(-since * 2.4) * Math.cos(since * 9);
+    const hoverIndex = [[3.0, 4.1, 1], [4.8, 5.9, 0], [6.6, 8.0, 2]].find(([a, b]) => t > a && t < b);
+    const hovered = hoverIndex && hoverIndex[2] === i;
+    const pressed = (pressCopy && i === 1) || (pressText && i === 0) || (holding && i === 2);
+    if (i === 2 && t > 7.45) {
+      const s = t - 7.45;
+      angle += 5 * Math.exp(-s * 3) * Math.cos(s * 11);
+    }
+    const scale = pressed ? 0.97 : hovered ? 1.035 : 1;
+    el.style.transform = `rotate(${angle}deg) scale(${scale})`;
+    el.style.boxShadow = hovered ? '0 10px 22px rgba(0,0,0,.24), 0 1px 3px rgba(0,0,0,.12)' : '';
+    if (i === 2) {
+      el.querySelector('.peg').className = 'peg' + (pinnedNow ? ' red' : '');
+      el.querySelector('.cap').innerHTML = `${pinnedNow ? `<span class="pin">${PIN}</span>` : ''}<span class="age">${spec.caption}</span><span class="end">${TEXT}</span>`;
+    }
+  });
+
+  const pills = [[3.35, 4.25, 1, 'Copied'], [5.25, 6.15, 0, 'Text copied'], [7.45, 8.3, 2, 'Pinned']];
+  const active = pills.find(([a, b]) => t > a && t < b);
+  if (active) {
+    const [a, b, i, label] = active;
+    const o = Math.min(easeOut(span(t, a, a + 0.15)), 1 - span(t, b - 0.2, b));
+    pill.innerHTML = (label === 'Pinned' ? PIN.replace(/currentColor/g, '#ff6b5e') : CHECK) + label;
+    pill.style.left = placed[i].cx + 'px';
+    pill.style.top = (24 + placed[i].top + placed[i].height + 12 - (1 - o) * 4) + 'px';
+    pill.style.opacity = o;
+  } else {
+    pill.style.opacity = 0;
+  }
+
+  const k = t > 4.75 && t < 5.6 ? Math.min(easeOut(span(t, 4.75, 4.95)), 1 - span(t, 5.4, 5.6)) : 0;
+  key.style.opacity = k;
+  key.style.left = (pos[0] + 16) + 'px';
+  key.style.top = (pos[1] + 18) + 'px';
+
+  if (holding) {
+    const v = span(t, 6.85, 7.45);
+    ptr.style.filter = `drop-shadow(0 0 ${v * 6}px rgba(255,107,94,${v}))`;
+  } else {
+    ptr.style.filter = '';
+  }
+}
+
+const mode = location.hash.slice(1);
+if (mode.endsWith('dark')) document.body.classList.add('dark');
+if (mode.startsWith('hero')) hero();
+if (mode.startsWith('bento')) bento();
+if (mode.startsWith('demo')) renderDemo(0);
+</script>
+</body>
+</html>
