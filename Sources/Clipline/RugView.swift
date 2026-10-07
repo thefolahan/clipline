@@ -232,13 +232,20 @@ final class RugView: NSView {
     }
 
     func toggle() {
-        if lift.length < 1 { corner = 2 }
+        if lift.length < 1 { corner = inwardCorner }
         setOpen(!isOpen)
+    }
+
+    private var inwardCorner: Int {
+        let middle = CGPoint(x: bounds.midX, y: bounds.midY)
+        return (0..<4).min { a, b in
+            (cornerPoint((a + 2) % 4) - middle).length < (cornerPoint((b + 2) % 4) - middle).length
+        } ?? 2
     }
 
     func tuck() {
         guard grab == nil, !isOpen else { return }
-        corner = Int.random(in: 0..<4)
+        corner = inwardCorner
         lift = .zero
         animate(to: diagonal * 0.22, stiffness: 220, damping: 18)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { [weak self] in
